@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BrandSync — Customer Purchase Summary</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=Mulish:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    /* Soothing Palette */
+    --bg:        #f8fafc;
+    --surface:   #ffffff;
+    --surface2:  #f1f5f9;
+    --border:    #e2e8f0;
+    --border2:   #cbd5e1;
+    --accent:    #475569; /* Slate Gray */
+    --accent2:   #059669; /* Sage/Emerald Green */
+    --green:     #10b981;
+    --red:       #ef4444;
+    --text:      #334155; /* Slate Blue-Gray */
+    --muted:     #64748b;
+    --dimmed:    #94a3b8;
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'Mulish', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--dimmed); border-radius: 3px; }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 22px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 14px; }
+  .logo-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: #ffffff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  .logo-text h1 {
+    font-family: var(--font-head); font-size: 18px; font-weight: 800;
+    color: #ffffff; letter-spacing: 0.5px;
+  }
+  .logo-text p { font-size: 11px; color: #cbd5e1; letter-spacing: 1px; text-transform: uppercase; }
+
+  /* ── Step bar ── */
+  .stepbar {
+    display: flex; align-items: center; max-width: 680px; margin: 36px auto 32px;
+    padding: 0 24px;
+  }
+  .step-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .step-circle {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-head); font-size: 13px; font-weight: 700;
+    border: 2px solid var(--border); background: var(--surface);
+    color: var(--dimmed); transition: all 0.3s;
+  }
+  .step-item.active .step-circle { background: #fff; border-color: var(--accent2); color: var(--accent2); box-shadow: 0 0 14px rgba(5, 150, 105, 0.2); }
+  .step-item.done .step-circle { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  .step-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--dimmed); white-space: nowrap; }
+  .step-item.active .step-label { color: var(--accent2); font-weight: 700; }
+  .step-item.done .step-label { color: var(--muted); }
+  .step-line { flex: 1; height: 2px; background: var(--border); margin: 0 10px 20px; transition: background 0.3s; }
+  .step-line.done { background: var(--accent2); }
+
+  /* ── Main container ── */
+  main { max-width: 860px; margin: 0 auto; padding: 0 24px 60px; }
+
+  /* ── Card ── */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px 32px; margin-bottom: 20px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    animation: fadeUp 0.3s ease;
+  }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .card-title { font-family: var(--font-head); font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .card-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
+  /* ── Inputs ── */
+  .field-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 6px; }
+  input[type="text"], select {
+    background: #fff; border: 1px solid var(--border2);
+    border-radius: 10px; padding: 10px 14px; color: var(--text);
+    font-size: 13px; font-family: var(--font-body); outline: none;
+    transition: border 0.2s, box-shadow 0.2s; width: 100%;
+  }
+  input[type="text"]:focus, select:focus {
+    border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+  }
+  select { cursor: pointer; }
+
+  /* ── Buttons ── */
+  .btn { cursor: pointer; border: none; border-radius: 10px; font-family: var(--font-body); font-weight: 700; font-size: 13px; padding: 10px 22px; transition: all 0.2s; display: inline-flex; align-items: center; gap: 7px; }
+  .btn-primary { background: var(--accent2); color: #fff; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.2); }
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-primary:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; box-shadow: none; color: #fff; }
+  .btn-secondary { background: #fff; border: 1px solid var(--border2); color: var(--text); }
+  .btn-secondary:hover { background: #f8fafc; border-color: var(--muted); }
+  .btn-danger { background: #fff; border: 1px solid #fee2e2; color: var(--red); }
+  .btn-danger:hover { background: #fef2f2; }
+  .btn-success { background: #10b981; color: #fff; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); }
+
+  /* ── Pill tag ── */
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: #f1f5f9; border: 1px solid var(--border2);
+    border-radius: 20px; padding: 5px 12px;
+    font-size: 12px; color: var(--text); font-weight: 600;
+    animation: popIn 0.2s ease;
+  }
+  .pill-remove:hover { color: var(--red); }
+
+  /* ── Upload box ── */
+  .upload-zone {
+    border: 2px dashed var(--border2); border-radius: 12px;
+    padding: 30px 20px; text-align: center; cursor: pointer;
+    transition: all 0.2s; background: #f8fafc; position: relative;
+  }
+  .upload-zone:hover { border-color: var(--accent2); background: #f1fef9; }
+  .upload-icon { font-size: 28px; margin-bottom: 8px; filter: grayscale(1); }
+  .upload-text { color: var(--text); font-size: 13px; font-weight: 600; }
+
+  /* ── Summary table ── */
+  .table-wrap { overflow-x: auto; border-radius: 14px; border: 1px solid var(--border); background: #fff; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 500px; }
+  thead th {
+    background: #f8fafc; color: var(--muted);
+    padding: 11px 16px; text-align: left;
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    border-bottom: 1px solid var(--border); font-family: var(--font-head);
+  }
+  tbody tr:nth-child(even) { background: #fcfdfe; }
+  tbody tr:hover { background: #f1f5f9; }
+  td { padding: 11px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  td.positive { color: var(--accent2); font-weight: 700; }
+  td.gst-cell { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+  
+  tfoot td {
+    background: #f1f5f9; padding: 11px 16px;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+    color: var(--text); border-top: 2px solid var(--border); text-align: right;
+  }
+
+  /* ── Summary bar ── */
+  .stat-val { font-family: var(--font-head); font-size: 22px; font-weight: 800; color: var(--accent2); }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: 28px; right: 28px;
+    background: var(--text); color: #fff;
+    border-radius: 10px; padding: 12px 20px;
+    font-size: 13px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📦</div>
+    <div class="logo-text">
+      <h1>BrandSync</h1>
+      <p>Customer Purchase Summary</p>
+    </div>
+  </div>
+  <button class="btn btn-danger" onclick="clearAll()">🗑 Clear All</button>
+</header>
+
+<div class="stepbar">
+  <div class="step-item active" id="step-ind-0">
+    <div class="step-circle" id="sc0">1</div>
+    <span class="step-label">Set Brands</span>
+  </div>
+  <div class="step-line" id="sl01"></div>
+  <div class="step-item" id="step-ind-1">
+    <div class="step-circle" id="sc1">2</div>
+    <span class="step-label">Upload Sheets</span>
+  </div>
+  <div class="step-line" id="sl12"></div>
+  <div class="step-item" id="step-ind-2">
+    <div class="step-circle" id="sc2">3</div>
+    <span class="step-label">Summary</span>
+  </div>
+</div>
+
+<main>
+
+<div id="view-0">
+  <div class="card">
+    <div class="card-title">Define Your Brands</div>
+    <div class="card-sub">Enter each brand name and press Add (or hit Enter). You can add as many as needed.</div>
+
+    <div class="row-flex" style="margin-bottom:18px; display: flex; gap: 10px; align-items: flex-end;">
+      <div style="flex:1">
+        <label class="field-label">Brand Name</label>
+        <input type="text" id="brand-input" placeholder="e.g. Brand A, Reliance, HUL…" onkeydown="if(event.key==='Enter') addBrand()"/>
+      </div>
+      <button class="btn btn-secondary" onclick="addBrand()" style="white-space:nowrap">+ Add</button>
+    </div>
+
+    <div class="pills-area" id="pills-area" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; min-height: 30px;">
+      <span class="empty-hint" id="no-brands-hint" style="color: var(--dimmed); font-size: 13px;">No brands added yet.</span>
+    </div>
+
+    <hr style="border: none; border-top: 1px solid var(--border); margin: 20px 0;"/>
+    <button class="btn btn-primary" id="confirm-brands-btn" onclick="confirmBrands()" disabled>
+      Confirm Brands →
+    </button>
+  </div>
+</div>
+
+<div id="view-1" class="hidden" style="display:none">
+  <div class="card">
+    <div class="card-title">Upload Excel Sheets</div>
+    <div class="card-sub">
+      Upload one Excel (.xlsx / .xls) or CSV file per brand. Auto-detection is active.
+    </div>
+  </div>
+  <div id="brand-upload-list"></div>
+  <div style="display: flex; gap: 10px; margin-top: 24px;">
+    <button class="btn btn-secondary" onclick="gotoStep(0)">← Back</button>
+    <button class="btn btn-primary" id="generate-btn" onclick="buildSummary()" disabled>Generate Summary →</button>
+  </div>
+</div>
+
+<div id="view-2" class="hidden" style="display:none">
+  <div class="summary-bar" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+    <div class="summary-stats" style="display: flex; gap: 24px;">
+      <div class="stat"><div class="stat-val" id="stat-customers">0</div><div class="stat-label" style="font-size: 10px; text-transform: uppercase; color: var(--muted);">Customers</div></div>
+      <div class="stat"><div class="stat-val" id="stat-brands">0</div><div class="stat-label" style="font-size: 10px; text-transform: uppercase; color: var(--muted);">Brands</div></div>
+      <div class="stat"><div class="stat-val" id="stat-total">₹0</div><div class="stat-label" style="font-size: 10px; text-transform: uppercase; color: var(--muted);">Grand Total</div></div>
+    </div>
+    <div class="summary-actions" style="display: flex; gap: 10px;">
+      <button class="btn btn-secondary" onclick="gotoStep(1)">← Edit</button>
+      <button class="btn btn-success" onclick="exportExcel()">⬇ Export Excel</button>
+    </div>
+  </div>
+  <div class="table-wrap" id="summary-table-wrap"></div>
+</div>
+
+</main>
+
+<div id="toast" style="opacity:0; transition: 0.3s; pointer-events: none;"></div>
+
+<script>
+// --- CORE LOGIC (UNCHANGED) ---
+let brands = [];
+let confirmedBrands = [];
+let brandData = {};
+let colOverride = {};
+let currentStep = 0;
+let summaryData = null;
+
+const $ = id => document.getElementById(id);
+const norm = v => String(v ?? '').trim().toUpperCase();
+const toAmt = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; };
+function fmtNum(n) { return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.style.opacity = '1';
+  setTimeout(() => el.style.opacity = '0', 2800);
+}
+
+function autoDetect(keys, patterns) { return keys.find(k => patterns.some(p => p.test(k))) ?? null; }
+function detectCols(rows) {
+  if (!rows.length) return {};
+  const keys = Object.keys(rows[0]);
+  return {
+    gstCol:  autoDetect(keys, [/gst/i, /gstin/i, /tax.*no/i]),
+    amtCol:  autoDetect(keys, [/amount/i, /amt/i, /total/i, /value/i, /qty/i, /quantity/i, /sales/i, /purchase/i]),
+    nameCol: autoDetect(keys, [/name/i, /customer/i, /party/i, /client/i, /buyer/i])
+  };
+}
+
+function gotoStep(s) {
+  [0,1,2].forEach(i => {
+    $(`view-${i}`).style.display = i === s ? 'block' : 'none';
+    const ind = $(`step-ind-${i}`);
+    ind.classList.remove('active','done');
+    if (i < s) ind.classList.add('done');
+    if (i === s) ind.classList.add('active');
+    $(`sc${i}`).textContent = i < s ? '✓' : i+1;
+  });
+  $('sl01').classList.toggle('done', s > 0);
+  $('sl12').classList.toggle('done', s > 1);
+  currentStep = s;
+}
+
+function addBrand() {
+  const v = $('brand-input').value.trim();
+  if (!v) return;
+  if (brands.some(b => b.toLowerCase() === v.toLowerCase())) { toast('Brand already added'); return; }
+  brands.push(v);
+  $('brand-input').value = '';
+  renderPills();
+  $('confirm-brands-btn').disabled = false;
+}
+
+function removeBrand(b) {
+  brands = brands.filter(x => x !== b);
+  renderPills();
+  $('confirm-brands-btn').disabled = brands.length === 0;
+}
+
+function renderPills() {
+  const area = $('pills-area');
+  area.innerHTML = '';
+  if (brands.length === 0) { area.innerHTML = '<span class="empty-hint">No brands added yet.</span>'; return; }
+  brands.forEach(b => {
+    const span = document.createElement('span');
+    span.className = 'pill';
+    span.innerHTML = `${b} <button class="pill-remove" style="border:none; background:none; cursor:pointer;" onclick="removeBrand('${b.replace(/'/g,"\\'")}')">×</button>`;
+    area.appendChild(span);
+  });
+}
+
+function confirmBrands() {
+  if (brands.length === 0) return;
+  confirmedBrands = [...brands];
+  renderBrandUploads();
+  gotoStep(1);
+}
+
+function renderBrandUploads() {
+  const list = $('brand-upload-list');
+  list.innerHTML = '';
+  confirmedBrands.forEach(brand => {
+    const div = document.createElement('div');
+    div.className = 'brand-upload-card';
+    div.style.cssText = "background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 14px;";
+    div.id = `bcard-${brand}`;
+    div.innerHTML = buildBrandCard(brand);
+    list.appendChild(div);
+  });
+  checkAllUploaded();
+}
+
+function buildBrandCard(brand) {
+  const d = brandData[brand];
+  const ov = colOverride[brand] ?? {};
+  const safeB = brand.replace(/"/g,'&quot;');
+  let fileSection = '';
+  if (!d) {
+    fileSection = `<div class="upload-zone" onclick="this.querySelector('input').click()">
+      <input type="file" style="display:none" accept=".xlsx,.xls,.csv" onchange="handleFile(event,'${safeB}')"/>
+      <div class="upload-icon">📄</div><div class="upload-text">Click to upload ${brand} sheet</div>
+    </div>`;
+  } else {
+    const cols = Object.keys(d.rows[0] ?? {});
+    const opts = (sel) => cols.map(c => `<option value="${c}" ${c===sel?'selected':''}>${c}</option>`).join('');
+    fileSection = `<div style="font-size:12px; color:var(--accent2); margin-bottom:10px;">✓ ${d.fileName} (${d.rows.length} rows)</div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
+        <div><label class="field-label">Name Col</label><select onchange="overrideCol('${safeB}','nameCol',this.value)">${opts(ov.nameCol)}</select></div>
+        <div><label class="field-label">GST Col</label><select onchange="overrideCol('${safeB}','gstCol',this.value)">${opts(ov.gstCol)}</select></div>
+        <div><label class="field-label">Amt Col</label><select onchange="overrideCol('${safeB}','amtCol',this.value)">${opts(ov.amtCol)}</select></div>
+      </div>
+      <button class="btn btn-danger" style="margin-top:10px; padding:5px 10px; font-size:11px;" onclick="removeBrandFile('${safeB}')">Remove</button>`;
+  }
+  return `<div style="font-weight:700; margin-bottom:10px;">${brand}</div>${fileSection}`;
+}
+
+function refreshCard(brand) { const card = $(`bcard-${brand}`); if (card) card.innerHTML = buildBrandCard(brand); }
+
+function handleFile(e, brand) {
+  const f = e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const wb = XLSX.read(ev.target.result, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    brandData[brand] = { rows, fileName: f.name };
+    const det = detectCols(rows);
+    colOverride[brand] = { nameCol: det.nameCol||'', gstCol: det.gstCol||'', amtCol: det.amtCol||'' };
+    refreshCard(brand);
+    checkAllUploaded();
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+function removeBrandFile(brand) { delete brandData[brand]; delete colOverride[brand]; refreshCard(brand); checkAllUploaded(); }
+function overrideCol(brand, key, val) { colOverride[brand][key] = val; }
+function checkAllUploaded() { const all = confirmedBrands.length > 0 && confirmedBrands.every(b => brandData[b]); $('generate-btn').disabled = !all; }
+
+function buildSummary() {
+  const brandMaps = {};
+  for (const brand of confirmedBrands) {
+    const d = brandData[brand];
+    const ov = colOverride[brand];
+    const map = {};
+    for (const row of d.rows) {
+      const gst = norm(row[ov.gstCol]);
+      if (!gst) continue;
+      const amt = toAmt(row[ov.amtCol]);
+      const name = String(row[ov.nameCol] ?? '').trim();
+      if (!map[gst]) map[gst] = { name: '', amount: 0 };
+      map[gst].amount += amt;
+      if (name && !map[gst].name) map[gst].name = name;
+    }
+    brandMaps[brand] = map;
+  }
+  const allGSTs = new Set();
+  confirmedBrands.forEach(b => Object.keys(brandMaps[b]).forEach(g => allGSTs.add(g)));
+  const rows = Array.from(allGSTs).map(gst => {
+    let name = '';
+    confirmedBrands.forEach(b => { if (brandMaps[b][gst]?.name) name = brandMaps[b][gst].name; });
+    const brandAmts = {};
+    let total = 0;
+    confirmedBrands.forEach(b => { const a = brandMaps[b][gst]?.amount || 0; brandAmts[b] = a; total += a; });
+    return { gst, name, ...brandAmts, total };
+  }).sort((a,b) => b.total - a.total);
+  summaryData = { brands: confirmedBrands, rows };
+  renderSummaryTable();
+  gotoStep(2);
+}
+
+function renderSummaryTable() {
+  const { brands: bs, rows } = summaryData;
+  const grandTotal = rows.reduce((s,r) => s + r.total, 0);
+  $('stat-customers').textContent = rows.length;
+  $('stat-brands').textContent = bs.length;
+  $('stat-total').textContent = '₹' + fmtNum(grandTotal);
+  let th = `<th>Sno</th><th>Customer</th><th>GST</th>`;
+  bs.forEach(b => th += `<th style="text-align:right">${b}</th>`);
+  th += `<th style="text-align:right">Total</th>`;
+  let trs = rows.map((r, i) => {
+    let tds = `<td>${i+1}</td><td><b>${r.name||'—'}</b></td><td class="gst-cell">${r.gst}</td>`;
+    bs.forEach(b => tds += `<td style="text-align:right" class="${r[b]>0?'positive':'' }">${r[b]>0 ? fmtNum(r[b]) : '—'}</td>`);
+    tds += `<td style="text-align:right; font-weight:700">₹${fmtNum(r.total)}</td>`;
+    return `<tr>${tds}</tr>`;
+  }).join('');
+  $('summary-table-wrap').innerHTML = `<table><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`;
+}
+
+function exportExcel() {
+  const { brands: bs, rows } = summaryData;
+  const headers = ['S.No', 'Customer', 'GST', ...bs, 'Total'];
+  const data = rows.map((r, i) => [i+1, r.name, r.gst, ...bs.map(b => r[b] || 0), r.total]);
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Summary');
+  XLSX.writeFile(wb, 'BrandSync_Summary.xlsx');
+  toast('Exported!');
+}
+
+function clearAll() { if (confirm('Fresh start?')) location.reload(); }
+</script>
+</body>
+</html>
